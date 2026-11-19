@@ -1,0 +1,10 @@
+{
+  "turns": [
+    "How do I set up a Python virtual environment on Windows?",
+    "Run python -m venv .venv, then activate it with .\\.venv\\Scripts\\Activate.ps1 in PowerShell.",
+    "Activation fails with 'running scripts is disabled'. What now?",
+    "Run Set-ExecutionPolicy -Scope CurrentUser RemoteSigned once, then activate again.",
+    "Now how do I install my package in editable mode?",
+    "Add a pyproject.toml, then run pip install -e . from the project root."
+  ]
+}
