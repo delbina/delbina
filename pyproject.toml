@@ -1,13 +1,37 @@
 [project]
 name = "delbina"
-version = "0.0.1"
-description = "Context-compression layer to cut chat token re-read cost"
+dynamic = ["version"]
+description = "Context-compression layer that cuts the token cost of long LLM chats"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Krupakar SB" }]
 requires-python = ">=3.10"
-dependencies = ["tiktoken"]
+dependencies = ["tiktoken>=0.7"]
+keywords = ["llm", "tokens", "context", "compression", "chat"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "build", "twine"]
+
+[project.scripts]
+delbina = "delbina.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/delbina/delbina"
+Issues = "https://github.com/delbina/delbina/issues"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "delbina.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

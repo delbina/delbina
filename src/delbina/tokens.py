@@ -1,10 +1,17 @@
+from functools import lru_cache
+
 import tiktoken
 
-_enc = tiktoken.get_encoding("cl100k_base")
+
+@lru_cache(maxsize=None)
+def _encoding(name: str = "cl100k_base") -> tiktoken.Encoding:
+    # Loaded lazily: tiktoken downloads the file on first use, so importing
+    # delbina must not need network.
+    return tiktoken.get_encoding(name)
 
 
 def count(text: str) -> int:
-    return len(_enc.encode(text))
+    return len(_encoding().encode(text))
 
 
 def cumulative_cost(turns: list[str]) -> int:
