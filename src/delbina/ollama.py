@@ -2,7 +2,7 @@
 import json
 import urllib.request
 
-from .compress import Summarizer
+from .strategies import Summarizer
 
 PROMPT = (
     "Summarize the following chat turns as compactly as possible. "

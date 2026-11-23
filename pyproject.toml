@@ -1,18 +1,21 @@
 [project]
 name = "delbina"
 dynamic = ["version"]
-description = "Context-compression layer that cuts the token cost of long LLM chats"
+description = "Keep long LLM chats under a token budget: trim and summarize chat history before each model call"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Krupakar SB" }]
 requires-python = ">=3.10"
 dependencies = ["tiktoken>=0.7"]
-keywords = ["llm", "tokens", "context", "compression", "chat"]
+keywords = ["llm", "tokens", "context", "compression", "chat", "agents", "summarization", "ollama", "openai"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
@@ -24,7 +27,9 @@ delbina = "delbina.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/delbina/delbina"
+Documentation = "https://github.com/delbina/delbina/tree/main/docs"
 Issues = "https://github.com/delbina/delbina/issues"
+Changelog = "https://github.com/delbina/delbina/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=77"]
@@ -35,3 +40,6 @@ version = { attr = "delbina.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+delbina = ["py.typed"]

@@ -1,12 +1,27 @@
 <p align="center"><img src="https://raw.githubusercontent.com/delbina/delbina/main/brand/delbina-logo-transparent-1024.png" width="160" alt="delbina"></p>
 
-# delbina
+<h1 align="center">delbina</h1>
 
-A context-compression layer that sits in front of existing LLMs to cut the token cost of long chats.
+<p align="center">Keep long LLM chats under a token budget. One function call, no server, no lock-in.</p>
 
-Every chat turn re-sends the whole history, so total token cost grows roughly quadratically with chat length. delbina measures that cost and compresses the history before it reaches the model.
+<p align="center">
+<a href="https://pypi.org/project/delbina/"><img src="https://img.shields.io/pypi/v/delbina" alt="PyPI"></a>
+<a href="https://github.com/delbina/delbina/actions/workflows/test.yml"><img src="https://github.com/delbina/delbina/actions/workflows/test.yml/badge.svg" alt="tests"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="license"></a>
+</p>
 
-> **Status: alpha (0.x).** Token-cost measurement and simple strategies work. Answer-quality evaluation is not built yet, so savings numbers say nothing about whether the model still answers correctly. The API may change.
+---
+
+## Why
+
+Chat models are stateless. Every turn, your app re-sends the **entire** conversation, so a 50-turn chat pays for turn 1 fifty times. Total cost grows roughly with the square of chat length, and eventually the chat hits the context limit.
+
+delbina sits between your chat history and the model call. It trims the history to a token budget you choose, keeps what matters (system prompt, recent turns), and can replace older turns with a running summary from a local model.
+
+```
+your messages ──► delbina.compress() ──► model API
+  (full history)      (fits budget)
+```
 
 ## Install
 
@@ -14,59 +29,94 @@ Every chat turn re-sends the whole history, so total token cost grows roughly qu
 pip install delbina
 ```
 
-On first use, tiktoken downloads its encoding file, so the first run needs network access.
+Python 3.10+. The only dependency is `tiktoken` (for counting tokens). On first use it downloads a tokenizer file, so the first run needs network access.
 
 ## Quick start
 
 ```python
-from delbina import cost, full, last_n, rolling_summary
+from delbina import compress
 
-turns = ["user: ...", "assistant: ...", "user: ...", "assistant: ..."]
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "..."},
+    {"role": "assistant", "content": "..."},
+    # ... hundreds more turns
+]
 
-print(cost(turns, full))        # tokens if full history is re-sent every turn
-print(cost(turns, last_n(4)))   # tokens if only the last 4 turns are sent
-
-context = rolling_summary(keep=2)(turns)   # what you would actually send
+small = compress(messages, max_tokens=2000)
+# send `small` to your model instead of `messages`
 ```
 
-### With a local model (Ollama)
+What `compress` guarantees:
+
+- leading **system** messages are always kept
+- the last `keep_last` messages (default 6) are always kept
+- older messages are dropped, oldest first, until the chat fits `max_tokens`
+- the kept part starts on a **user** message, so tool calls and replies are never split
+- your input list is never modified
+
+## In a chat loop (recommended)
+
+Use one `Compressor` per conversation. With a summarizer, dropped turns become a summary, and the summary is **updated incrementally**: each turn only the newly dropped messages are summarized, not the whole history again.
 
 ```python
-from delbina import ollama_summarizer, rolling_summary
+from delbina import Compressor, ollama_summarizer
 
-strategy = rolling_summary(keep=4, summarize=ollama_summarizer("qwen2.5:1.5b"))
+comp = Compressor(
+    max_tokens=3000,
+    keep_last=6,
+    summarize=ollama_summarizer("qwen2.5:1.5b"),  # any local Ollama model
+)
+
+messages = [{"role": "system", "content": "You are a helpful assistant."}]
+while True:
+    messages.append({"role": "user", "content": input("> ")})
+    reply = call_your_model(comp.compress(messages))   # full history stays in `messages`
+    messages.append({"role": "assistant", "content": reply})
+    print(reply)
+    print(comp.last_stats)   # tokens_before, tokens_after, dropped, summarized
 ```
 
-Requires a running [Ollama](https://ollama.com) server. No extra Python dependencies.
+The summarizer is any function `list[str] -> str`, so you can plug in any model or API.
+
+Ready-to-use examples for **OpenAI**, **Anthropic** and **Ollama**: [docs/integrations.md](docs/integrations.md) and [examples/](examples/).
 
 ## CLI
 
 ```bash
-delbina bench chat.json                       # compare strategies
-delbina bench chat.json --ollama qwen2.5:1.5b # use a local model for summaries
+delbina compress chat.json --max-tokens 2000 -o small.json   # compress a saved chat
+delbina bench chat.json                                       # compare strategies' token cost
+delbina --version
 ```
 
-`chat.json` format: `{"turns": ["...", "..."]}`
+`chat.json` is `{"messages": [{"role": ..., "content": ...}, ...]}` or `{"turns": ["...", ...]}`.
 
-## Strategies
+On Windows, if `delbina.exe` is blocked by Smart App Control, use `python -m delbina ...` instead.
 
-| Strategy | What is sent each turn |
-|---|---|
-| `full` | the whole history (baseline) |
-| `last_n(n)` | the last n turns |
-| `head_tail(h, t)` | the first h turns (task setup) + the last t turns |
-| `rolling_summary(keep, summarize)` | a summary of older turns + the last `keep` turns |
+## Measuring
 
-Note: `cost()` counts tokens sent to the main model. It does not yet count the tokens spent by the summarizer itself.
+```python
+from delbina import cost, full, last_n, rolling_summary
 
-## Development
-
-```bash
-python -m venv .venv
-pip install -e ".[dev]"
-pytest -q
+turns = ["...", "...", "..."]
+cost(turns, full)        # tokens spent if the full history is re-sent every turn
+cost(turns, last_n(4))   # tokens spent if only the last 4 turns are sent
 ```
+
+See [docs/guide.md](docs/guide.md) for every option and strategy.
+
+## Status
+
+**Alpha (0.x).** The API may change between minor versions.
+
+What works: token budgeting, system/tail preservation, safe cut points, incremental summaries, measurement tools.
+
+Not built yet: **answer-quality evaluation.** Token savings alone don't prove the model still answers well; a benchmark for that is the next milestone. Token counts use OpenAI's `cl100k_base` encoding, which is an approximation for other models; pass `count_tokens=` for exact counts.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: [SECURITY.md](SECURITY.md).
 
 ## License
 
-Apache-2.0
+[Apache-2.0](LICENSE)
