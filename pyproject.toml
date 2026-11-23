@@ -1,14 +1,14 @@
 [project]
 name = "delbina"
 dynamic = ["version"]
-description = "Keep long LLM chats under a token budget: trim and summarize chat history before each model call"
+description = "Cut the token bill of long LLM chats and AI agents: cache-friendly context compression, tool-output trimming, and a drop-in OpenAI-compatible proxy"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Krupakar SB" }]
 requires-python = ">=3.10"
 dependencies = ["tiktoken>=0.7"]
-keywords = ["llm", "tokens", "context", "compression", "chat", "agents", "summarization", "ollama", "openai"]
+keywords = ["llm", "tokens", "context", "compression", "chat", "agents", "prompt-caching", "proxy", "summarization", "ollama", "openai", "anthropic"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -20,6 +20,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+hf = ["tokenizers>=0.15"]
 dev = ["pytest", "build", "twine"]
 
 [project.scripts]

@@ -22,7 +22,7 @@ pytest -q
 
 ## Good first contributions
 
-- Answer-quality benchmark: questions about early turns, answered with and without compression.
+- More `delbina eval` scenarios (multi-fact questions, code-editing tasks) and published results for popular models.
 - New strategies (importance scoring, embedding-based retrieval of old turns).
 - Summarizers for other local runtimes.
 - Better token counting for non-OpenAI models.
@@ -31,4 +31,4 @@ pytest -q
 
 1. Bump `__version__` in `src/delbina/__init__.py` and date the version in `CHANGELOG.md`.
 2. Commit and push; wait for the `test` workflow to pass.
-3. Publish a GitHub release tagged `vX.Y.Z`. The `publish` workflow uploads to PyPI via trusted publishing after approval.
+3. Publish a GitHub release tagged `vX.Y.Z` (no dot after the `v`). The `publish` workflow uploads to PyPI via trusted publishing after approval.
