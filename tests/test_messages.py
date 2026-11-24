@@ -78,3 +78,12 @@ def test_content_blocks():
 def test_bad_args():
     with pytest.raises(ValueError):
         Compressor(max_tokens=0, count_tokens=words)
+
+
+def test_long_summary_is_capped_to_its_reserve():
+    rambling = lambda lines: "fact " * 500          # summarizer ignores the length limit
+    c = Compressor(max_tokens=100, keep_last=2, summarize=rambling, summary_tokens=20, count_tokens=words)
+    out = c.compress(chat(30))
+    assert words(c.summary) <= 20
+    assert c.last_stats.tokens_after <= 100           # budget holds despite the summarizer
+    assert out[1]["content"].startswith("Summary of the earlier conversation:")

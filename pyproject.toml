@@ -4,8 +4,8 @@ dynamic = ["version"]
 description = "Cut the token bill of long LLM chats and AI agents: cache-friendly context compression, tool-output trimming, and a drop-in OpenAI-compatible proxy"
 readme = "README.md"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
-authors = [{ name = "Krupakar SB" }]
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Krupakar S Bilichod" }]
 requires-python = ">=3.10"
 dependencies = ["tiktoken>=0.7"]
 keywords = ["llm", "tokens", "context", "compression", "chat", "agents", "prompt-caching", "proxy", "summarization", "ollama", "openai", "anthropic"]

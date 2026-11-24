@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Replay a saved conversation and estimate what the input tokens would cost,
 with provider prompt caching taken into account.
 

@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Command line.
 
     delbina serve --upstream URL [--max-tokens N] [--port 8787] ...

@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Compare token cost of compression strategies on a chat file."""
 import json
 import sys

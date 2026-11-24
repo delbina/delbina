@@ -137,3 +137,35 @@ def test_failed_case_is_skipped_not_fatal():
     scores = run(cases, 600, ask, count_tokens=lambda s: len(s.split()), modes=["full"], on_error=errors.append)
     assert scores[0].errors == 1 and sum(scores[0].total.values()) == 2
     assert len(errors) == 1 and "TimeoutError" in errors[0]
+
+
+def test_error_body_is_in_the_message(fake_net):
+    body = b'{"error": {"message": "Missing or invalid Authorization header."}}'
+    fake_net["queue"] = [_http_error(400, body)]
+    with pytest.raises(urllib.error.HTTPError) as err:
+        chat_completion("http://x/v1", "m", [], retries=3)
+    assert "Missing or invalid Authorization header" in str(err.value)
+    assert fake_net["sleeps"] == []  # 400 is not retried
+
+
+def test_mode_stops_after_errors_in_a_row():
+    cases = make_cases(n=5, steps=8, seed=2)
+    calls = {"n": 0}
+
+    def ask(ctx):
+        calls["n"] += 1
+        raise RuntimeError("bad key")
+
+    errors = []
+    scores = run(cases, 600, ask, count_tokens=lambda s: len(s.split()), modes=["full"], on_error=errors.append)
+    assert calls["n"] == 2                  # gave up after 2, did not try all 5
+    assert scores[0].errors == 5
+    assert "skipping the other 3" in errors[-1]
+
+
+def test_report_shows_fact_in_context():
+    from delbina.evaluate import report
+    cases = make_cases(n=3, steps=8, seed=2)
+    scores = run(cases, 10_000, lambda ctx: "no idea", count_tokens=lambda s: len(s.split()), modes=["full"])
+    assert scores[0].in_ctx == 3 and scores[0].accuracy == 0
+    assert "in context" in report(scores, offline=False)

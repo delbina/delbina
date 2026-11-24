@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Generate bench/data/agent_session.json: a synthetic coding-agent session.
 
 A user gives an agent 25 tasks; the agent reads files, greps and runs tests.

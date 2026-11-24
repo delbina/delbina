@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Answer-quality benchmark: does the model still answer correctly after compression?
 
 Each case is a long agent-style conversation (chat turns plus large tool
@@ -139,9 +141,11 @@ class Score:
     tokens: int = 0
     empty: int = 0
     errors: int = 0
+    in_ctx: int = 0  # cases where the planted fact was still in the context sent
 
-    def add(self, position: str, ok: bool, tokens: int, empty: bool = False) -> None:
+    def add(self, position: str, ok: bool, tokens: int, empty: bool = False, in_ctx: bool = False) -> None:
         self.empty += empty
+        self.in_ctx += in_ctx
         self.correct[position] = self.correct.get(position, 0) + ok
         self.total[position] = self.total.get(position, 0) + 1
         self.tokens += tokens
@@ -161,7 +165,10 @@ def run(
     progress: Callable[[str], None] | None = None,
     modes: list[str] | None = None,
     on_error: Callable[[str], None] | None = None,
+    max_consecutive_errors: int = 2,
 ) -> list[Score]:
+    """Score each mode. After ``max_consecutive_errors`` failures in a row (bad key,
+    wrong model, quota gone) the rest of that mode is skipped instead of retried."""
     counter = resolve(count_tokens)
     common = dict(max_tokens=max_tokens, keep_last=4, count_tokens=counter)
     all_modes: list[tuple[str, Callable[[], Compressor] | None]] = [
@@ -175,7 +182,14 @@ def run(
     scores = []
     for name, make in selected:
         score = Score(name)
+        streak = 0
         for i, case in enumerate(cases):
+            if max_consecutive_errors and streak >= max_consecutive_errors:
+                left = len(cases) - i
+                score.errors += left
+                if on_error is not None:
+                    on_error(f"{name}: {streak} errors in a row, skipping the other {left} case(s)")
+                break
             if progress:
                 progress(f"{name} case {i + 1}/{len(cases)}")
             try:
@@ -188,9 +202,9 @@ def run(
                 msgs = case.messages + [{"role": "user", "content": case.question}]
                 ctx = comp.compress(msgs) if comp else msgs
                 tokens = sum(counter(message_text(m)) for m in ctx)
+                in_ctx = case.answer in "\n".join(message_text(m) for m in ctx[:-1])
                 if ask is None:
-                    ok = case.answer in "\n".join(message_text(m) for m in ctx[:-1])
-                    empty = False
+                    ok, empty = in_ctx, False
                 else:
                     reply = ask(ctx)
                     ok, empty = case.answer in reply, not reply
@@ -198,10 +212,12 @@ def run(
                 if ask is None and summarize is None:
                     raise  # offline: no network involved, so this is a real bug
                 score.errors += 1  # network/API failure after all retries: skip the case, keep going
+                streak += 1
                 if on_error is not None:
                     on_error(f"{name} case {i + 1}: {type(e).__name__}: {e}")
                 continue
-            score.add(case.position, ok, tokens, empty)
+            streak = 0
+            score.add(case.position, ok, tokens, empty, in_ctx)
         scores.append(score)
     return scores
 
@@ -213,6 +229,8 @@ def report(scores: list[Score], offline: bool) -> str:
            f"{'mode':<10}{'overall':>9}" + "".join(f"{p:>9}" for p in positions) + f"{'avg tokens':>12}"]
     show_empty = any(s.empty for s in scores)
     show_err = any(s.errors for s in scores)
+    if not offline:
+        out[-1] += f"{'in context':>12}"
     if show_empty:
         out[-1] += f"{'no reply':>10}"
     if show_err:
@@ -223,7 +241,11 @@ def report(scores: list[Score], offline: bool) -> str:
         for p in positions:
             row += f"{(s.correct.get(p, 0) / s.total[p]) if s.total.get(p) else 0:>9.0%}"
         row += f"{s.tokens // n:>12,}"
+        if not offline:
+            row += f"{s.in_ctx / n:>12.0%}"
         out.append(row + (f"{s.empty:>10}" if show_empty else "") + (f"{s.errors:>8}" if show_err else ""))
+    if not offline:
+        out.append("\n'in context' = the fact was still in what the model saw; below 'overall' means the model missed it.")
     if show_err:
         out.append("\n'errors' = API/network failure after all retries; those cases are left out of the scores.")
     if show_empty:
@@ -239,6 +261,8 @@ def main_eval(a) -> None:
     calls = {"n": 0, "label": ""}
     if not a.offline:
         key = a.api_key if a.api_key is not None else os.environ.get("OPENAI_API_KEY", "")
+        if not key and "localhost" not in a.base_url and "127.0.0.1" not in a.base_url:
+            sys.exit("delbina eval: no API key (set OPENAI_API_KEY or pass --api-key)")
         throttle = RateLimiter(a.rpm)  # one limiter shared by answers and summaries
         on_retry = lambda n, wait, why: print(
             f"\n  {why}, retry {n}/{a.retries} in {wait:.0f}s", file=sys.stderr, flush=True)
@@ -248,7 +272,7 @@ def main_eval(a) -> None:
         on_empty = lambda r: reasons.__setitem__(r, reasons.get(r, 0) + 1)
         ask = lambda msgs: chat_completion(a.base_url, a.model, msgs, key, on_empty=on_empty, **opts)
         if a.summary_model:
-            raw = openai_summarizer(a.summary_model, base_url=a.base_url, api_key=key, **opts)
+            raw = openai_summarizer(a.summary_model, base_url=a.base_url, api_key=key, max_tokens=300, **opts)
 
             def summarize(lines):  # show each summary call, so slow runs don't look stuck
                 calls["n"] += 1

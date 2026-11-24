@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Compression strategies.
 
 A strategy maps the chat history so far (list of turns) to the context

@@ -168,4 +168,5 @@ Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Se
 
 ## License
 
-[Apache-2.0](LICENSE)
+Copyright 2026 Krupakar S Bilichod. Licensed under [Apache-2.0](LICENSE).
+If you redistribute delbina or a modified version, keep the [NOTICE](NOTICE) file with it.

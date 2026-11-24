@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Compress chat message lists before they are sent to a model.
 
 Works with the common chat format used by OpenAI, Ollama, Anthropic and most
@@ -270,6 +272,20 @@ class Compressor:
             self._trim_cache[fp] = out
         return out
 
+    def _cap_summary(self, summary: Any) -> str:
+        """Keep a summary within ``summary_tokens``: the planner reserved exactly that much
+        room, so a longer summary would overflow the budget and force early compactions."""
+        text = str(summary or "").strip()
+        limit = self.summary_tokens
+        if not limit or self.count_tokens(text) <= limit:
+            return text
+        total = self.count_tokens(text)
+        text = text[: max(int(len(text) * limit / total), 1)]
+        while text and self.count_tokens(text) > limit:
+            text = text[: int(len(text) * 0.9)]
+        space = text.rfind(" ")
+        return (text[:space] if space > len(text) // 2 else text).rstrip()
+
     def _summary_message(self, summary: str) -> Message:
         return {"role": self.summary_role, "content": SUMMARY_PREFIX + summary}
 
@@ -396,7 +412,7 @@ class Compressor:
                 if ready is not None:
                     cut, summary = ready
                 elif cut > cut0:
-                    summary = summarize_fn(self._summary_lines(rest, fps, cut0, cut, old_summary))
+                    summary = self._cap_summary(summarize_fn(self._summary_lines(rest, fps, cut0, cut, old_summary)))
             self._pending = None
             self._active = True
             self._system_fp = system_fp
@@ -437,7 +453,7 @@ class Compressor:
             future.cancel()
             return None
         try:
-            return p_cut, future.result()
+            return p_cut, self._cap_summary(future.result())
         except Exception:
             return None
 

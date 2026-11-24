@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """A tool-calling agent loop with delbina, runnable offline.
 
 The "model" here is a stub that reads a few files and then answers, so you can

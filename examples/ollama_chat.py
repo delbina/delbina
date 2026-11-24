@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Terminal chat with a local Ollama model, history kept under a token budget.
 
     ollama pull qwen2.5:1.5b

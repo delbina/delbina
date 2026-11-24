@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Drop-in compression proxy.
 
     delbina serve --upstream https://api.openai.com/v1 --max-tokens 8000

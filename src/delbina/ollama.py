@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Ready-made summarizers (stdlib only, no extra dependencies)."""
 from __future__ import annotations
 
@@ -16,8 +18,13 @@ PROMPT = (
     "Summarize the following chat turns as compactly as possible. "
     "Keep facts, decisions, names, numbers, file paths, errors and open questions. "
     "If a previous summary is given, merge it with the new turns into one summary. "
-    "Drop greetings and filler.\n\n{chat}\n\nSummary:"
+    "Drop greetings and filler. Use at most {words} words.\n\n{chat}\n\nSummary:"
 )
+
+
+def _prompt(turns: list[str], max_tokens: int) -> str:
+    # ~0.75 words per token leaves headroom for the token limit
+    return PROMPT.format(chat="\n".join(f"- {t}" for t in turns), words=max(int(max_tokens * 0.75), 20))
 
 
 RETRY_STATUS = {429, 500, 502, 503, 504}
@@ -78,6 +85,13 @@ def _post(
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
             if e.code not in RETRY_STATUS or attempt == retries:
+                # surface the server's error body (e.g. Gemini's reason for a 400)
+                try:
+                    detail = e.read().decode("utf-8", "replace").strip()[:500]
+                except Exception:
+                    detail = ""
+                if detail:
+                    e.msg = f"{e.msg}: {detail}"
                 raise
             wait, reason = _retry_delay(e, attempt), f"HTTP {e.code}"
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
@@ -114,13 +128,15 @@ def ollama_summarizer(
     model: str = "qwen2.5:1.5b",
     host: str = "http://localhost:11434",
     timeout: float = 120.0,
+    max_tokens: int = 300,
 ) -> Summarizer:
     """Summarizer that calls a local Ollama server's /api/generate endpoint."""
     url = host.rstrip("/") + "/api/generate"
 
     def summarize(turns: list[str]) -> str:
-        prompt = PROMPT.format(chat="\n".join(f"- {t}" for t in turns))
-        return _post(url, {"model": model, "prompt": prompt, "stream": False}, {}, timeout)["response"].strip()
+        body = {"model": model, "prompt": _prompt(turns, max_tokens), "stream": False,
+                "options": {"num_predict": max_tokens}}
+        return _post(url, body, {}, timeout)["response"].strip()
 
     return summarize
 
@@ -130,7 +146,7 @@ def openai_summarizer(
     base_url: str = "https://api.openai.com/v1",
     api_key: str | None = None,
     timeout: float = 120.0,
-    max_tokens: int = 400,
+    max_tokens: int = 300,
     reasoning_effort: str | None = None,
     retries: int = 0,
     throttle: Callable[[], None] | None = None,
@@ -149,7 +165,7 @@ def openai_summarizer(
     headers = {"Authorization": f"Bearer {key}"} if key else {}
 
     def summarize(turns: list[str]) -> str:
-        prompt = PROMPT.format(chat="\n".join(f"- {t}" for t in turns))
+        prompt = _prompt(turns, max_tokens)
         body = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens}
         if reasoning_effort:
             body["reasoning_effort"] = reasoning_effort

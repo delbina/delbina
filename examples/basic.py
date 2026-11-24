@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Minimal offline demo: compress a long synthetic chat and print stats."""
 from delbina import Compressor
 

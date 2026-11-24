@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Token counting.
 
 ``count`` uses tiktoken's cl100k_base. ``counter(model)`` returns a counter for

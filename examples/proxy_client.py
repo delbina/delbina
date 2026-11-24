@@ -1,3 +1,5 @@
+# Copyright 2026 Krupakar S Bilichod
+# SPDX-License-Identifier: Apache-2.0
 """Use any OpenAI-compatible client through the delbina proxy.
 
 Terminal 1 (local Ollama as the real backend):
