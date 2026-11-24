@@ -2,7 +2,7 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org/); 0.x releases may change the API.
 
-## [0.3.0] - 2026-11-23
+## [0.3.0] - 2026-11-24
 
 Focus: make delbina a real middleman for AI agents that lowers the bill, not just the token count.
 
