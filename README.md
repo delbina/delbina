@@ -71,7 +71,7 @@ client = OpenAI(base_url="http://127.0.0.1:8787/v1")   # the only change
 The official OpenAI SDKs, and most tools built on them, read `OPENAI_BASE_URL`, so often you only set an environment variable. Your API key passes through untouched and is never stored. Also works with Anthropic (`/v1/messages`), Ollama, vLLM, LM Studio, Groq, OpenRouter and any other OpenAI-compatible server. Each conversation gets its own compressor; live savings are at `http://127.0.0.1:8787/delbina/stats`.
 
 - **Send `X-Delbina-Session: <id>`** with each request if you can. Without it, conversations are told apart by model, system prompt and first message, so two chats that start the same way share one compressor and keep resetting each other (no data mixes, but prompt caching suffers).
-- **Privacy:** with a summarizer, old messages and tool outputs (code, logs, anything an agent read) are sent to the summary model. Use a local summarizer (Ollama) for private code or secrets, and remember that free API tiers may use your data to improve their models.
+- **Privacy:** with a summarizer, old messages and tool outputs (code, logs, anything an agent read) are sent to the summary model. Use a local summarizer (Ollama) for private code, add `--redact mask` to hide API keys, tokens and passwords from the summarizer, and remember that free API tiers may use your data to improve their models. Redaction is pattern-based and best-effort, not a guarantee.
 - The proxy listens on `127.0.0.1` by default and has no authentication; do not expose it on a public interface.
 
 ## Option 2: library
@@ -92,7 +92,7 @@ while True:
 Guarantees:
 
 - leading **system** messages are always kept
-- the newest user request and everything after it, and the last `keep_last` messages, are never dropped
+- the newest user request and everything after it are never dropped; the last `keep_last` messages are kept too unless that would break `max_tokens` (`strict_budget=False` to always keep them)
 - the kept part always starts on a **user** message, so a tool call is never separated from its result
 - tool-call ids and all other message fields are preserved; your input list is never modified
 - between compaction events the output only grows at the end (stable prefix for prompt caching)
@@ -103,6 +103,18 @@ Add a running summary of dropped messages:
 from delbina import Compressor, ollama_summarizer
 
 comp = Compressor(max_tokens=16000, summarize=ollama_summarizer("qwen2.5:1.5b"), background=True)
+```
+
+Pin messages that must never be dropped, such as the task statement, and hide secrets from the summarizer:
+
+```python
+comp = Compressor(
+    max_tokens=16000,
+    summarize=ollama_summarizer("qwen2.5:1.5b"),
+    protect="first_user",          # or a function (message, index) -> bool
+    redact=True,                   # keys/tokens become [[SECRET_n]] for the summarizer, restored in the summary
+    on_compact=print,              # one line per compaction: tokens, dropped, pinned, timings, redaction counts
+)
 ```
 
 Keep the state across restarts:

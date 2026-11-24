@@ -83,7 +83,7 @@ python -m delbina serve --upstream https://api.openai.com/v1 --max-tokens 32000
 You should see:
 
 ```
-delbina 0.3.0 proxy on http://127.0.0.1:8787/v1 -> https://...
+delbina 0.4.0 proxy on http://127.0.0.1:8787/v1 -> https://...
 budget 16000 tokens, target 60%, stats at http://127.0.0.1:8787/delbina/stats
 ```
 

@@ -52,13 +52,17 @@ def _add_compression_args(p: argparse.ArgumentParser, max_tokens: int) -> None:
     p.add_argument("--tokenizer", metavar="MODEL", help="count tokens for this model, e.g. gpt-4o, claude, hf:Qwen/Qwen2.5-7B-Instruct, chars")
     p.add_argument("--ollama", metavar="MODEL", help="summarize dropped messages with a local Ollama model")
     p.add_argument("--ollama-host", default="http://localhost:11434")
+    p.add_argument("--redact", choices=["mask", "strip"],
+                   help="hide secrets from the summarizer: mask (restored in the summary) or strip")
+    p.add_argument("--protect-task", action="store_true", help="never drop the first user message")
 
 
 def _compressor_kwargs(a: argparse.Namespace) -> dict:
     return dict(
         max_tokens=a.max_tokens, keep_last=a.keep_last, target_ratio=a.target,
         tool_max_tokens=a.tool_max_tokens or None, keep_tool_results=a.keep_tool_results,
-        count_tokens=a.tokenizer,
+        count_tokens=a.tokenizer, redact=getattr(a, "redact", None),
+        protect="first_user" if getattr(a, "protect_task", False) else None,
     )
 
 
@@ -127,6 +131,14 @@ def run_server(a: argparse.Namespace) -> None:
         print(f"warning: listening on {a.host}: anyone who can reach this port can use your upstream "
               "(and any key-less upstream such as Ollama). Keep it on 127.0.0.1 unless you mean it.",
               file=sys.stderr)
+    if not a.quiet:  # show compaction events (counts only, never message text)
+        import logging
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("[delbina] %(message)s"))
+        log = logging.getLogger("delbina")
+        log.addHandler(handler)
+        log.setLevel(logging.INFO)
+        log.propagate = False
     server = serve(a.upstream, a.host, a.port, factory, a.max_sessions, log=not a.quiet)
     print(f"delbina {__version__} proxy on http://{a.host}:{a.port}/v1 -> {a.upstream}\n"
           f"budget {a.max_tokens} tokens, target {a.target:.0%}, stats at http://{a.host}:{a.port}/delbina/stats\n"

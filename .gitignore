@@ -225,3 +225,4 @@ __marimo__/
 # delbina examples
 agent_state.json
 *.delbina.json
+RELEASE_NOTES_*.md

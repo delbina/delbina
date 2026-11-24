@@ -35,10 +35,44 @@ def test_fits_budget_and_keeps_system_and_tail():
     assert c.last_stats.dropped > 0 and c.last_stats.saved > 0
 
 
-def test_keep_last_is_never_dropped_even_over_budget():
+def test_keep_last_wins_over_budget_when_not_strict():
+    msgs = chat(6, size=50)
+    out = compress(msgs, max_tokens=10, keep_last=4, count_tokens=words, strict_budget=False)
+    assert out[-4:] == msgs[-4:]
+
+
+def test_strict_budget_relaxes_keep_last_but_keeps_newest_turn():
     msgs = chat(6, size=50)
     out = compress(msgs, max_tokens=10, keep_last=4, count_tokens=words)
-    assert out[-4:] == msgs[-4:]
+    assert out[-1] == msgs[-1] and len(out) < len(msgs)
+
+
+def agent_chat(big):
+    def call(cid, out_words):
+        return [{"role": "assistant", "content": None, "tool_calls": [
+                    {"id": cid, "type": "function", "function": {"name": "f", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": cid, "content": "\n".join("t " * 10 for _ in range(out_words // 10))}]
+    msgs = [{"role": "system", "content": "sys"}, {"role": "user", "content": "first task " * 5}]
+    for k in range(4):
+        msgs += call(f"a{k}", 300)
+    msgs += [{"role": "assistant", "content": "done " * 5}, {"role": "user", "content": "next task " * 5}]
+    msgs += call("b0", 300) + call("b1", big)
+    return msgs
+
+
+def test_strict_budget_drops_previous_turn_then_trims_newest_output():
+    from delbina import Compressor
+    for big, budget in ((1500, 3000), (5000, 3000)):
+        msgs = agent_chat(big)
+        comp = Compressor(max_tokens=budget, keep_last=6, count_tokens=words, tool_max_tokens=200)
+        out = comp.compress(msgs)
+        assert comp.last_stats.tokens_after <= budget
+        assert out[-1]["tool_call_id"] == "b1"
+        assert ("delbina trimmed" in out[-1]["content"]) == (big > budget)  # newest output cut only if needed
+        loose = Compressor(max_tokens=budget, keep_last=6, count_tokens=words, tool_max_tokens=200,
+                           strict_budget=False)
+        loose.compress(msgs)
+        assert (loose.last_stats.tokens_after > budget) == (big > budget)  # the old behaviour overflowed
 
 
 def test_kept_part_starts_with_user():

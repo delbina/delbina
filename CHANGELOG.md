@@ -2,6 +2,19 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org/); 0.x releases may change the API.
 
+## [0.4.0] - 2026-11-24
+
+Focus: control what is kept, keep secrets away from summarizers, and see what each compaction did.
+
+### Added
+- **`protect=`**: messages that are never dropped, summarized or trimmed. Presets `"first_user"` and `"system"`, or a function `(message, index) -> bool`. Protected tool calls keep their results (and the other way round). Pinned messages sit after the summary, so the prefix stays cache-stable. `BudgetError` when they alone exceed `max_tokens`. `Stats.pinned`. CLI: `--protect-task`.
+- **Secret redaction** for summarizer input: `redact=True`/`"mask"` (placeholders, restored in the summary) or `"strip"` (one-way). New module `delbina.redact` with `Redactor` and `redact_text`. CLI: `--redact mask|strip`.
+- **Compaction log**: `CompactionEvent` (tokens, dropped, pinned, trimmed, summary size, summarizer time, prefetch, redaction counts; never text) on the `"delbina"` logger and via `on_compact=`. `Compressor.last_event`. `delbina serve` prints events unless `--quiet`.
+
+### Changed
+- **`strict_budget=True` (default)**: when a compaction would still exceed `max_tokens`, `keep_last` gives way first (the newest user turn is still kept), then the newest tool outputs are shortened to `tool_max_tokens`. Before, `keep_last` plus one large tool output could leave the result well over budget (49 of 252 calls in the bundled agent session at a 3000-token budget; now 0, with fewer compactions). `strict_budget=False` restores the old behaviour.
+- `Stats.dropped` no longer counts protected messages.
+
 ## [0.3.0] - 2026-11-24
 
 Focus: make delbina a real middleman for AI agents that lowers the bill, not just the token count.

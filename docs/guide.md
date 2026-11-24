@@ -52,6 +52,10 @@ Compressor(
     keep_tool_results=2,    # newest N tool outputs are never shortened
     background=False,       # prepare the next summary in a background thread
     prefetch_ratio=0.85,    # ... starting at this fraction of max_tokens
+    protect=None,           # (message, index) -> bool, or presets {"first_user", "system"}
+    redact=None,            # True/"mask", "strip", or a delbina.Redactor
+    on_compact=None,        # callback(CompactionEvent) after each compaction
+    strict_budget=True,     # over max_tokens: relax keep_last, then shorten the newest tool outputs
 )
 ```
 
@@ -59,7 +63,8 @@ Compressor(
 |---|---|
 | `compress(messages)` | return a list that fits the budget |
 | `await acompress(messages)` | same, for async code; works with async summarizers |
-| `last_stats` | `Stats(tokens_before, tokens_after, dropped, summarized, trimmed, compacted)`, plus `.saved` |
+| `last_stats` | `Stats(tokens_before, tokens_after, dropped, summarized, trimmed, compacted, pinned)`, plus `.saved` |
+| `last_event` | the last `CompactionEvent`, or None |
 | `summary` | current running summary |
 | `state()` / `load_state(d)` | JSON-serializable state |
 | `save(path)` / `load(path)` | the same, to a file; `load` returns False if the file is missing |
@@ -73,9 +78,36 @@ Compressor(
 
 - leading `system` messages,
 - the newest user message and everything after it (the current request and its tool calls),
-- the last `keep_last` messages.
+- the last `keep_last` messages, unless that would exceed `max_tokens` (see below),
+- protected messages (`protect=`).
 
-These are never dropped, but old tool outputs among them can still be shortened. If they alone exceed `max_tokens`, the result is over budget; check `last_stats.tokens_after`.
+Old tool outputs among them can still be shortened. With `strict_budget=True` (default), if a compaction would still exceed `max_tokens`, delbina first lets `keep_last` give way (dropping older turns, never the newest user turn), then shortens the newest tool outputs to `tool_max_tokens`. Only if the newest user turn is still too big after that (or `tool_max_tokens=None`) is the result over budget; check `last_stats.tokens_after`. With `strict_budget=False`, `keep_last` and the newest tool outputs always win.
+
+### Protected messages (`protect=`)
+
+Protected messages are never dropped, summarized or shortened. After a compaction they sit right after the summary, in their original order, so the prefix stays stable between compactions.
+
+- `protect="first_user"`: the first user message (usually the task). `"system"`: system messages after the leading ones. Pass a set for both.
+- `protect=lambda message, index: ...`: your own rule; `index` is the position in the list passed to `compress`.
+- Protecting a tool call also protects its results, and the other way round.
+- If protected and leading system messages alone exceed `max_tokens`, `compress` raises `BudgetError` (a `ValueError`). The proxy then forwards that request uncompressed.
+- Anthropic requires the first message to be from the user. With the default `summary_role="system"` that holds for `"first_user"`, but a protected assistant tool call can end up first; protect the user turn before it as well.
+
+### Secret redaction (`redact=`)
+
+Only the summarizer input is redacted. Messages sent to your own model are unchanged.
+
+- `redact=True` or `"mask"`: each secret becomes `[[SECRET_n]]` (same value, same number) and is put back into the summary afterwards. The value never reaches the summarizer, but `comp.summary`, `state()` and `save()` contain it, so treat saved state files as secret.
+- `redact="strip"`: secrets become `[REDACTED:kind]` for good. Use it for anything you store or publish.
+- Detected: private-key blocks, AWS, GitHub, Google, Slack, Stripe, OpenAI and Anthropic keys, JWTs, `Bearer` tokens, passwords in URLs, and `password=` / `api_key: ...` style assignments (only the value is replaced).
+- `Redactor(mode, entropy=True)` also catches long random-looking tokens; off by default because it hits hashes and IDs. `Redactor(patterns=[...])` takes your own `(kind, regex)` pairs.
+- `redact_text(text)` is a one-shot helper (strip mode) for logs and datasets.
+
+This is pattern matching, not a guarantee: unknown formats and secrets written as plain words get through.
+
+### Compaction log (`on_compact=`)
+
+Each compaction produces a `CompactionEvent`: `tokens_before`, `tokens_after`, `dropped`, `pinned`, `trimmed`, `summarized`, `summary_tokens`, `summary_ms`, `prefetched`, `redactions` (count by kind). It holds counts and timings only, never message text or secret values. It is logged at INFO on the `"delbina"` logger and passed to `on_compact`. A failing callback is logged and ignored. `delbina serve` prints these lines unless `--quiet`.
 
 ### Safety rules
 
