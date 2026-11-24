@@ -272,7 +272,7 @@ def main_eval(a) -> None:
         on_empty = lambda r: reasons.__setitem__(r, reasons.get(r, 0) + 1)
         ask = lambda msgs: chat_completion(a.base_url, a.model, msgs, key, on_empty=on_empty, **opts)
         if a.summary_model:
-            raw = openai_summarizer(a.summary_model, base_url=a.base_url, api_key=key, max_tokens=300, **opts)
+            raw = openai_summarizer(a.summary_model, base_url=a.base_url, api_key=key, **opts)
 
             def summarize(lines):  # show each summary call, so slow runs don't look stuck
                 calls["n"] += 1

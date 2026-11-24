@@ -26,7 +26,7 @@ Focus: make delbina a real middleman for AI agents that lowers the bill, not jus
 - The kept part never starts on a tool result; if no safe cut exists, less is dropped instead.
 - `compress()` (one-shot) keeps the 0.2 behaviour of fitting just under `max_tokens` (`target_ratio=1.0`), since a single call cannot keep a stable prefix. Use `Compressor` in loops.
 - Summarizers receive shortened tool outputs; the summary is updated once per compaction event instead of every turn.
-- Summaries are capped to `summary_tokens` (the room the planner reserves), so a long-winded summarizer can no longer push the result over budget. Built-in summarizers ask for a word limit and default to `max_tokens=300`; `ollama_summarizer` gained `max_tokens`.
+- The room reserved for the summary grows to the real size of the current summary, so long summaries no longer push the result over budget; a hard cap at 2x `summary_tokens` catches summarizers that ramble. `ollama_summarizer` gained `max_tokens` (default 400).
 - `eval` shows an "in context" column (was the fact still in what the model saw), stops a mode after 2 errors in a row, exits early when no API key is set for a remote API, and includes the server's error message in failures.
 - Copyright notice: `NOTICE` file (shipped in the package) and SPDX headers in source files.
 

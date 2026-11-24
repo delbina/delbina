@@ -84,6 +84,16 @@ def test_long_summary_is_capped_to_its_reserve():
     rambling = lambda lines: "fact " * 500          # summarizer ignores the length limit
     c = Compressor(max_tokens=100, keep_last=2, summarize=rambling, summary_tokens=20, count_tokens=words)
     out = c.compress(chat(30))
-    assert words(c.summary) <= 20
+    assert words(c.summary) <= 40                     # hard cap: 2x summary_tokens
     assert c.last_stats.tokens_after <= 100           # budget holds despite the summarizer
     assert out[1]["content"].startswith("Summary of the earlier conversation:")
+
+
+def test_reserve_follows_real_summary_size():
+    c = Compressor(max_tokens=400, keep_last=2, summarize=lambda l: "fact " * 35, summary_tokens=20, count_tokens=words)
+    msgs = chat(10)
+    for i in range(10, 80, 2):
+        msgs = msgs + chat(i + 2)[-2:]
+        c.compress(msgs)
+        assert c.last_stats.tokens_after <= 400           # 35-word summaries > 20 reserve, budget still holds
+    assert c._reserve() > 20

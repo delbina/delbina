@@ -18,13 +18,13 @@ PROMPT = (
     "Summarize the following chat turns as compactly as possible. "
     "Keep facts, decisions, names, numbers, file paths, errors and open questions. "
     "If a previous summary is given, merge it with the new turns into one summary. "
-    "Drop greetings and filler. Use at most {words} words.\n\n{chat}\n\nSummary:"
+    "Drop greetings and filler.\n\n{chat}\n\nSummary:"
 )
 
 
 def _prompt(turns: list[str], max_tokens: int) -> str:
-    # ~0.75 words per token leaves headroom for the token limit
-    return PROMPT.format(chat="\n".join(f"- {t}" for t in turns), words=max(int(max_tokens * 0.75), 20))
+    # No word limit in the prompt: in tests it made models drop the exact facts we need.
+    return PROMPT.format(chat="\n".join(f"- {t}" for t in turns))
 
 
 RETRY_STATUS = {429, 500, 502, 503, 504}
@@ -128,7 +128,7 @@ def ollama_summarizer(
     model: str = "qwen2.5:1.5b",
     host: str = "http://localhost:11434",
     timeout: float = 120.0,
-    max_tokens: int = 300,
+    max_tokens: int = 400,
 ) -> Summarizer:
     """Summarizer that calls a local Ollama server's /api/generate endpoint."""
     url = host.rstrip("/") + "/api/generate"
@@ -146,7 +146,7 @@ def openai_summarizer(
     base_url: str = "https://api.openai.com/v1",
     api_key: str | None = None,
     timeout: float = 120.0,
-    max_tokens: int = 300,
+    max_tokens: int = 400,
     reasoning_effort: str | None = None,
     retries: int = 0,
     throttle: Callable[[], None] | None = None,

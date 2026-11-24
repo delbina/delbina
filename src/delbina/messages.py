@@ -272,11 +272,19 @@ class Compressor:
             self._trim_cache[fp] = out
         return out
 
+    def _reserve(self) -> int:
+        """Room kept for the summary: at least ``summary_tokens``, or the real size of the
+        current summary if it is bigger (the next one will be about as long)."""
+        if not self.summary_tokens:
+            return 0
+        current = self.count_tokens(SUMMARY_PREFIX + self._summary) + MESSAGE_OVERHEAD if self._summary else 0
+        return max(self.summary_tokens, current)
+
     def _cap_summary(self, summary: Any) -> str:
-        """Keep a summary within ``summary_tokens``: the planner reserved exactly that much
-        room, so a longer summary would overflow the budget and force early compactions."""
+        """Hard safety cap at 2x ``summary_tokens`` for summarizers that ramble.
+        Normal overshoot is handled by ``_reserve`` instead: cutting a summary loses facts."""
         text = str(summary or "").strip()
-        limit = self.summary_tokens
+        limit = 2 * self.summary_tokens
         if not limit or self.count_tokens(text) <= limit:
             return text
         total = self.count_tokens(text)
@@ -329,13 +337,13 @@ class Compressor:
             trim_until = until(self.keep_tool_results)
             if self.keep_tool_results > 1:
                 # If the newest tool outputs alone overflow the budget, keep only the very newest intact.
-                tail = system_size + self.summary_tokens + sum(
+                tail = system_size + self._reserve() + sum(
                     self._eff_size(rest, fps, sizes, i, trim_until) for i in range(trim_until, n))
                 if tail > self.max_tokens * self.target_ratio:
                     trim_until = until(1)
         eff = [self._eff_size(rest, fps, sizes, i, trim_until) for i in range(n)]
         target = int(self.max_tokens * self.target_ratio)
-        reserve = self.summary_tokens
+        reserve = self._reserve()
         kept = sum(eff[cut0:])
         if system_size + reserve + kept <= target:
             return cut0, trim_until  # trimming tool outputs was enough
@@ -449,7 +457,7 @@ class Compressor:
             return None
         # Accept only if it leaves real room to grow; otherwise compact properly now.
         kept = sum(self._eff_size(rest, fps, sizes, i, trim_until) for i in range(p_cut, len(rest)))
-        if system_size + self.summary_tokens + kept > self.max_tokens * (1 + self.target_ratio) / 2:
+        if system_size + self._reserve() + kept > self.max_tokens * (1 + self.target_ratio) / 2:
             future.cancel()
             return None
         try:
