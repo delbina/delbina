@@ -70,6 +70,10 @@ client = OpenAI(base_url="http://127.0.0.1:8787/v1")   # the only change
 
 The official OpenAI SDKs, and most tools built on them, read `OPENAI_BASE_URL`, so often you only set an environment variable. Your API key passes through untouched and is never stored. Also works with Anthropic (`/v1/messages`), Ollama, vLLM, LM Studio, Groq, OpenRouter and any other OpenAI-compatible server. Each conversation gets its own compressor; live savings are at `http://127.0.0.1:8787/delbina/stats`.
 
+- **Send `X-Delbina-Session: <id>`** with each request if you can. Without it, conversations are told apart by model, system prompt and first message, so two chats that start the same way share one compressor and keep resetting each other (no data mixes, but prompt caching suffers).
+- **Privacy:** with a summarizer, old messages and tool outputs (code, logs, anything an agent read) are sent to the summary model. Use a local summarizer (Ollama) for private code or secrets, and remember that free API tiers may use your data to improve their models.
+- The proxy listens on `127.0.0.1` by default and has no authentication; do not expose it on a public interface.
+
 ## Option 2: library
 
 ```python
@@ -128,12 +132,23 @@ No local GPU? The Gemini API free tier works through its OpenAI-compatible endpo
 ```powershell
 $env:GEMINI_API_KEY = "your-key"
 python -m delbina eval --base-url https://generativelanguage.googleapis.com/v1beta/openai `
-  --model MODEL_ID --summary-model MODEL_ID --reasoning-effort minimal --rpm 8 --cases 12
+  --api-key $env:GEMINI_API_KEY --model MODEL_ID --summary-model MODEL_ID --reasoning-effort minimal --rpm 8 --cases 12
 ```
 
 `eval` retries rate-limit errors, and `--modes full,sliding` / `--modes delbina,summary` split a run across days if the daily quota is small.
 
-The honest result so far: drop-only compression forgets facts that fall out of the window. With a budget of 3000 tokens, 0% of early facts survive in context. The summary mode exists for exactly this, and `eval` measures how much it recovers with your models. Set the budget and summarizer for your workload with this, not with guesses.
+Result with `gemini-3.5-flash-lite` (answers and summaries, `--reasoning-effort minimal`), 12 cases x 40 agent steps, budget 3000 tokens, 2026-11-24:
+
+| mode | correct | early | middle | late | fact in context | avg tokens sent |
+|---|---|---|---|---|---|---|
+| full | 100% | 100% | 100% | 100% | 100% | 32,353 |
+| sliding (drop only) | 0% | 0% | 0% | 0% | 0% | 2,566 |
+| delbina (drop + trim) | 0% | 0% | 0% | 0% | 0% | 2,120 |
+| delbina + summary | **100%** | 100% | 100% | 100% | 100% | **2,050** |
+
+With a summarizer, delbina sent about 94% fewer tokens and still answered every question. Drop-only modes forget any fact that falls out of the window: at this budget (a tenth of the chat) even the "late" facts are gone, and the model tried to call a tool to look them up instead. Use drop-only when old context does not matter, and a summarizer when it does.
+
+This is a small, synthetic test: one model, 12 conversations, one planted fact each. Facts with exact values (keys, ports, IDs) are what summaries tend to lose, so it is a fair stress test, not a guarantee for your workload. Run `eval` with your own models and budget before relying on it.
 
 ## CLI
 
