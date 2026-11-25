@@ -10,7 +10,7 @@ Or run it as a proxy in front of any OpenAI-compatible API:
 
     delbina serve --upstream https://api.openai.com/v1 --max-tokens 8000
 """
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 from .strategies import cost, full, head_tail, last_n, naive_summarizer, rolling_summary
 from .messages import BudgetError, CompactionEvent, Compressor, Stats, compress, message_text

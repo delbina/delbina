@@ -162,6 +162,19 @@ With a summarizer, delbina sent about 94% fewer tokens and still answered every 
 
 This is a small, synthetic test: one model, 12 conversations, one planted fact each. Facts with exact values (keys, ports, IDs) are what summaries tend to lose, so it is a fair stress test, not a guarantee for your workload. Run `eval` with your own models and budget before relying on it.
 
+### Fact check
+
+Small summarizer models sometimes write a fact that was never in the chat, such as a guessed default branch or an invented env var name. `checked` wraps any summarizer and drops fact lines whose value is not in the text it summarized:
+
+```python
+from delbina import Compressor, checked, ollama_summarizer
+
+summarize = checked(ollama_summarizer(model="qwen2.5:1.5b"), on_drop=print)
+comp = Compressor(max_tokens=8000, summarize=summarize)
+```
+
+It applies to lines shaped `- subject: label: value` before a `Context:` line. The match is a case-insensitive substring check, so it catches values that were invented, not values that are wrong but happen to appear somewhere in the chat.
+
 ## CLI
 
 ```bash

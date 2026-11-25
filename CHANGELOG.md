@@ -2,6 +2,14 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org/); 0.x releases may change the API.
 
+## [0.4.1] - 2026-11-25
+
+### Added
+- **Fact check for summaries**: `check_facts(summary, source)` drops fact lines (`- subject: label: value`, before a `Context:` line) whose value does not occur in the source text, so a summary can lose a fact but never gain one. `checked(summarizer, on_drop=)` wraps any summarizer with it. Returns `FactCheck(text, dropped)`.
+
+### Changed
+- CI tests Python 3.10 to 3.15; releases go to TestPyPI before PyPI.
+
 ## [0.4.0] - 2026-11-24
 
 Focus: control what is kept, keep secrets away from summarizers, and see what each compaction did.
