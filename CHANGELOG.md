@@ -2,6 +2,15 @@
 
 All notable changes. Versions follow [Semantic Versioning](https://semver.org/); 0.x releases may change the API.
 
+## [0.5.0] - 2026-11-28
+
+### Added
+- **delbina-sum support**: `DELBINA_SUM` (`hf.co/delbina/delbina-sum-GGUF:Q4_K_M`), a 1.5B summarizer fine-tuned for delbina's prompt and the `Facts:` / `Context:` format that `checked` verifies. Model `delbina/delbina-sum@ff16f9a`, GGUF `delbina/delbina-sum-GGUF@659a80f`; both Q4_K_M and Q8_0 pass every release bar (see the model cards).
+- `openai_summarizer(temperature=)`: sent only when set (use 0 for delbina-sum behind vLLM or llama.cpp).
+
+### Changed
+- `ollama_summarizer` now sends `temperature=0` and `num_ctx=8192` by default (new parameters). Ollama's defaults sampled at 0.8 and could silently cut long chats; pass `temperature=` / `num_ctx=` to change them.
+
 ## [0.4.1] - 2026-11-25
 
 ### Added

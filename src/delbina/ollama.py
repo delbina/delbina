@@ -124,18 +124,29 @@ def finish_reason(data: dict) -> str:
     return str(choice.get("finish_reason") or "unknown")
 
 
+# delbina-sum, the summarizer trained for this prompt and output format (Q8_0 also available).
+DELBINA_SUM = "hf.co/delbina/delbina-sum-GGUF:Q4_K_M"
+
+
 def ollama_summarizer(
     model: str = "qwen2.5:1.5b",
     host: str = "http://localhost:11434",
     timeout: float = 120.0,
     max_tokens: int = 400,
+    temperature: float = 0.0,
+    num_ctx: int = 8192,
 ) -> Summarizer:
-    """Summarizer that calls a local Ollama server's /api/generate endpoint."""
+    """Summarizer that calls a local Ollama server's /api/generate endpoint.
+
+    ``temperature`` 0 (greedy) and ``num_ctx`` 8192 are how delbina-sum was evaluated; Ollama's own
+    defaults (0.8 and a smaller context) would sample, and silently cut long chats.
+    Use ``model=DELBINA_SUM`` for delbina-sum.
+    """
     url = host.rstrip("/") + "/api/generate"
 
     def summarize(turns: list[str]) -> str:
         body = {"model": model, "prompt": _prompt(turns, max_tokens), "stream": False,
-                "options": {"num_predict": max_tokens}}
+                "options": {"num_predict": max_tokens, "temperature": temperature, "num_ctx": num_ctx}}
         return _post(url, body, {}, timeout)["response"].strip()
 
     return summarize
@@ -151,6 +162,7 @@ def openai_summarizer(
     retries: int = 0,
     throttle: Callable[[], None] | None = None,
     on_retry: Callable[[int, float, str], None] | None = None,
+    temperature: float | None = None,
 ) -> Summarizer:
     """Summarizer for any OpenAI-compatible /chat/completions endpoint
     (OpenAI, Groq, OpenRouter, vLLM, LM Studio, llama.cpp, Ollama's /v1 ...).
@@ -159,6 +171,8 @@ def openai_summarizer(
     ``reasoning_effort`` is sent as-is when set (e.g. "minimal" for Gemini, "low" for o-series).
     ``retries`` retries 429/5xx with backoff; ``throttle`` is called before each request
     (pass a :class:`RateLimiter` to stay under a requests-per-minute limit).
+    ``temperature`` is sent only when set: use 0 for delbina-sum served by vLLM/llama.cpp
+    (left out by default because some models, e.g. OpenAI o-series, reject it).
     """
     url = base_url.rstrip("/") + "/chat/completions"
     key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", "")
@@ -169,6 +183,8 @@ def openai_summarizer(
         body = {"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": max_tokens}
         if reasoning_effort:
             body["reasoning_effort"] = reasoning_effort
+        if temperature is not None:
+            body["temperature"] = temperature
         data = _post(url, body, headers, timeout, retries, throttle, on_retry)
         return reply_text(data)
 

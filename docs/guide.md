@@ -128,7 +128,7 @@ so summarization cost stays flat as the chat grows, and runs once per event inst
 
 With `background=True`, delbina starts summarizing in a background thread once the chat passes `prefetch_ratio * max_tokens`. When the event comes, the summary is usually ready and adds no delay.
 
-Summarizers: `ollama_summarizer(model)` (local Ollama) and `openai_summarizer(model, base_url=..., api_key=...)` (any OpenAI-compatible API), both standard-library only. Or any function `list[str] -> str`.
+Summarizers: `ollama_summarizer(model)` (local Ollama; `ollama_summarizer(DELBINA_SUM)` for the trained delbina-sum model) and `openai_summarizer(model, base_url=..., api_key=...)` (any OpenAI-compatible API), both standard-library only. Or any function `list[str] -> str`.
 
 ### Message format
 

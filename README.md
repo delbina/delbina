@@ -175,6 +175,23 @@ comp = Compressor(max_tokens=8000, summarize=summarize)
 
 It applies to lines shaped `- subject: label: value` before a `Context:` line. The match is a case-insensitive substring check, so it catches values that were invented, not values that are wrong but happen to appear somewhere in the chat.
 
+### delbina-sum: a summarizer trained for this (experimental)
+
+[delbina-sum](https://huggingface.co/delbina/delbina-sum) is a 1.5B model fine-tuned for delbina's summary prompt: it keeps exact values (keys, ports, IDs, versions, paths, `[[SECRET_n]]` placeholders), only the newest one, under the right project. On held-out synthetic chats it keeps 98% of facts (plain Qwen2.5-1.5B: 22.5%) and invents under 1%. It runs locally through Ollama (941 MB):
+
+```bash
+ollama pull hf.co/delbina/delbina-sum-GGUF:Q4_K_M
+```
+
+```python
+from delbina import DELBINA_SUM, Compressor, checked, ollama_summarizer
+
+summarize = checked(ollama_summarizer(DELBINA_SUM))   # greedy, 8192-token context
+comp = Compressor(max_tokens=8000, summarize=summarize, redact=True)
+```
+
+Its output is the `Facts:` / `Context:` format that `checked` verifies. Trained and tested on synthetic chats only so far; limitations are on the [model card](https://huggingface.co/delbina/delbina-sum).
+
 ## CLI
 
 ```bash

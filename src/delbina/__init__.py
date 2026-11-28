@@ -10,11 +10,11 @@ Or run it as a proxy in front of any OpenAI-compatible API:
 
     delbina serve --upstream https://api.openai.com/v1 --max-tokens 8000
 """
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 
 from .strategies import cost, full, head_tail, last_n, naive_summarizer, rolling_summary
 from .messages import BudgetError, CompactionEvent, Compressor, Stats, compress, message_text
-from .ollama import ollama_summarizer, openai_summarizer
+from .ollama import DELBINA_SUM, ollama_summarizer, openai_summarizer
 from .factcheck import FactCheck, check_facts, checked
 from .redact import Redactor, redact_text
 from .tokens import count, counter, cumulative_cost
@@ -24,7 +24,7 @@ __all__ = [
     "__version__",
     # main API
     "compress", "Compressor", "Stats", "CompactionEvent", "BudgetError", "message_text",
-    "ollama_summarizer", "openai_summarizer",
+    "ollama_summarizer", "openai_summarizer", "DELBINA_SUM",
     "check_facts", "checked", "FactCheck",
     # privacy
     "Redactor", "redact_text",
